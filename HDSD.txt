@@ -1,0 +1,5 @@
+node fb_download.js "https://www.facebook.com/stories/...."
+
+npm install puppeteer
+
+node fb_download.js "https://www.facebook.com/share/v/1FDxC7AWxn"
