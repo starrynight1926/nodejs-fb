@@ -4,8 +4,11 @@ const { exec } = require('child_process');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('NodeJSFB API OK');
+app.post('/', (req, res) => {
+  res.json({
+    message: 'POST OK',
+    body: req.body
+  });
 });
 
 app.post('/download', (req, res) => {
