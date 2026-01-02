@@ -1,44 +1,73 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
+const path = require('path');
 
 const app = express();
-app.use(express.json());
 
-app.post('/', (req, res) => {
-  res.json({
-    message: 'POST OK',
-    body: req.body
-  });
+/* =========================
+   Middleware
+========================= */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* =========================
+   Health check
+========================= */
+app.get('/', (req, res) => {
+  res.send('NodeJSFB API OK');
 });
 
+/* =========================
+   Download Facebook API
+   POST /download
+   Body: { "url": "https://facebook.com/..." }
+========================= */
 app.post('/download', (req, res) => {
-  const { url } = req.body;
+  const url = req.body?.url;
 
   if (!url) {
-    return res.status(400).json({ error: 'Missing url' });
+    return res.status(400).json({
+      error: 'Missing url'
+    });
   }
 
-  // escape đơn giản
-  const safeUrl = url.replace(/"/g, '\\"');
+  // đường dẫn tuyệt đối cho chắc
+  const scriptPath = path.join(__dirname, 'fb_download.js');
 
-  const cmd = `node fb_download.js "${safeUrl}"`;
+  execFile(
+    'node',
+    [scriptPath, url],
+    { timeout: 60_000 }, // 60s
+    (error, stdout, stderr) => {
+      if (error) {
+        console.error('Download error:', error);
+        return res.status(500).json({
+          error: 'Download failed',
+          detail: stderr || error.message
+        });
+      }
 
-  exec(cmd, { cwd: __dirname, timeout: 5 * 60 * 1000 }, (err, stdout, stderr) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({
-        success: false,
-        error: stderr || err.message
+      res.json({
+        success: true,
+        output: stdout.trim()
       });
     }
-
-    res.json({
-      success: true,
-      output: stdout
-    });
-  });
+  );
 });
 
-app.listen(3001, () => {
-  console.log('API listening on port 3001');
+/* =========================
+   404 fallback
+========================= */
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
+
+/* =========================
+   Start server
+========================= */
+const PORT = 3001;
+const HOST = '127.0.0.1';
+
+app.listen(PORT, HOST, () => {
+  console.log(`API listening on http://${HOST}:${PORT}`);
 });
