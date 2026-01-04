@@ -5,7 +5,6 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 puppeteer.use(StealthPlugin());
 
-/* ================= COOKIE ================= */
 async function loadCookies(page) {
   try {
     const cookiePath = path.join(__dirname, 'cookie_clean.json');
@@ -18,7 +17,6 @@ async function loadCookies(page) {
   }
 }
 
-/* ============== JSON WALKER =============== */
 function extractMedia(obj, results = []) {
   if (!obj || typeof obj !== 'object') return results;
 
@@ -27,7 +25,6 @@ function extractMedia(obj, results = []) {
     return results;
   }
 
-  // video
   if (typeof obj.base_url === 'string' && obj.base_url.includes('.mp4')) {
     results.push({ type: 'video', url: obj.base_url });
   }
@@ -36,7 +33,6 @@ function extractMedia(obj, results = []) {
     results.push({ type: 'video', url: obj.playable_url });
   }
 
-  // image
   if (
     typeof obj.uri === 'string' &&
     /\.(jpg|jpeg|png|webp)(\?|$)/i.test(obj.uri)
@@ -51,7 +47,6 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-/* ================= CORE ================= */
 async function fbDownload(url) {
   if (!url) {
     throw new Error('Missing Facebook URL');
@@ -71,10 +66,8 @@ async function fbDownload(url) {
     console.log('🌐 Đang mở:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    // đợi Facebook render JS
     await new Promise(r => setTimeout(r, 6000));
 
-    // lấy các script JSON
     let scripts = await page.$$eval('script', els =>
       els
         .map(e => e.innerText)
@@ -88,10 +81,10 @@ async function fbDownload(url) {
         )
     );
 
-    // NEXT DATA (reel / story)
     const nextData = await page
       .$eval('#__NEXT_DATA__', el => el.innerText)
       .catch(() => null);
+
     if (nextData) scripts.push(nextData);
 
     let media = [];
@@ -101,12 +94,12 @@ async function fbDownload(url) {
       } catch {}
     }
 
-    // dedupe theo URL
     media = [...new Map(media.map(m => [m.url, m])).values()];
 
     const videos = media.filter(m => m.type === 'video');
     const images = media.filter(m => m.type === 'image');
 
+    // ✅ RETURN RÕ RÀNG
     return {
       count: {
         videos: videos.length,
