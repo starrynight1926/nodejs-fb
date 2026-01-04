@@ -51,13 +51,10 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-/* ================= MAIN ================= */
-module.exports = async function fbDownload(url) {
+/* ================= CORE FUNCTION ================= */
+async function fbDownload(url) {
   if (!url) {
-    return {
-      success: false,
-      error: 'Missing Facebook URL'
-    };
+    throw new Error('Missing Facebook URL');
   }
 
   const browser = await puppeteer.launch({
@@ -74,6 +71,7 @@ module.exports = async function fbDownload(url) {
     console.log('🌐 Đang mở:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
+    // chờ FB render
     await new Promise(r => setTimeout(r, 6000));
 
     // lấy script chứa json
@@ -106,27 +104,45 @@ module.exports = async function fbDownload(url) {
     // dedupe theo url
     media = [...new Map(media.map(m => [m.url, m])).values()];
 
-    const videos = media.filter(m => m.type === 'video');
-    const images = media.filter(m => m.type === 'image');
+    const videos = media.filter(m => m.type === 'video').map(v => v.url);
+    const images = media.filter(m => m.type === 'image').map(i => i.url);
 
     return {
-      success: true,
       count: {
         videos: videos.length,
         images: images.length,
         total: media.length
       },
       media: {
-        videos: videos.map(v => v.url),
-        images: images.map(i => i.url)
+        videos,
+        images
       }
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: err.message
     };
   } finally {
     await browser.close();
   }
-};
+}
+
+/* ================= EXPORT ================= */
+module.exports = fbDownload;
+
+/* ================= CLI RUNNER ================= */
+/* QUAN TRỌNG: đoạn này giúp stdout KHÔNG BAO GIỜ RỖNG */
+if (require.main === module) {
+  const url = process.argv[2];
+
+  fbDownload(url)
+    .then(result => {
+      console.log(JSON.stringify({
+        success: true,
+        output: result
+      }, null, 2));
+    })
+    .catch(err => {
+      console.error(JSON.stringify({
+        success: false,
+        error: err.message
+      }, null, 2));
+      process.exit(1);
+    });
+}
