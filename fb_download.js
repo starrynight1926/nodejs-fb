@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
@@ -7,12 +8,13 @@ puppeteer.use(StealthPlugin());
 /* ================= COOKIE ================= */
 async function loadCookies(page) {
   try {
-    const raw = fs.readFileSync("cookie_clean.json", "utf8");
+    const cookiePath = path.join(__dirname, "cookie_clean.json");
+    const raw = fs.readFileSync(cookiePath, "utf8");
     const cookies = JSON.parse(raw);
     await page.setCookie(...cookies);
-    console.error("🍪 Cookie loaded OK");
+    console.log("🍪 Cookie loaded OK");
   } catch (e) {
-    console.error("⚠️ Cookie error:", e.message);
+    console.log("⚠️ Không load được cookie:", e.message);
   }
 }
 
@@ -47,8 +49,13 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-module.exports = async function fbDownload(url) {
-  if (!url) throw new Error("Missing Facebook URL");
+/* ================= MAIN ================= */
+async function main() {
+  const url = process.argv[2];
+  if (!url) {
+    console.log("❌ Missing Facebook URL");
+    process.exit(1);
+  }
 
   const browser = await puppeteer.launch({
     headless: "new",
@@ -57,24 +64,25 @@ module.exports = async function fbDownload(url) {
       process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath()
   });
 
-  let media = [];
-
   try {
     const page = await browser.newPage();
     await loadCookies(page);
 
-    console.error("🌐 Đang mở:", url);
+    console.log("🌐 Đang mở:", url);
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+
     await new Promise(r => setTimeout(r, 6000));
 
     let scripts = await page.$$eval("script", els =>
-      els.map(e => e.innerText).filter(t =>
-        t && (
-          t.includes("base_url") ||
-          t.includes("playable_url") ||
-          t.includes("__bbox")
+      els
+        .map(e => e.innerText)
+        .filter(
+          t =>
+            t &&
+            (t.includes("base_url") ||
+              t.includes("playable_url") ||
+              t.includes("__bbox"))
         )
-      )
     );
 
     const nextData = await page
@@ -82,6 +90,7 @@ module.exports = async function fbDownload(url) {
       .catch(() => null);
     if (nextData) scripts.push(nextData);
 
+    let media = [];
     for (const s of scripts) {
       try {
         extractMedia(JSON.parse(s), media);
@@ -89,15 +98,24 @@ module.exports = async function fbDownload(url) {
     }
 
     media = [...new Map(media.map(m => [m.url, m])).values()];
-    return {
-      count: {
-        videos: media.filter(m => m.type === "video").length,
-        images: media.filter(m => m.type === "image").length,
-        total: media.length
-      },
-      media
-    };
+
+    console.log("📦 Tổng media:", media.length);
+    console.log("🎬 Videos:");
+    media.filter(m => m.type === "video").forEach(v => {
+      console.log(v.url);
+    });
+
+    console.log("🖼 Images:");
+    media.filter(m => m.type === "image").forEach(i => {
+      console.log(i.url);
+    });
+
+    console.log("DONE");
+  } catch (e) {
+    console.log("❌ Error:", e.message);
   } finally {
     await browser.close();
   }
-};
+}
+
+main();
