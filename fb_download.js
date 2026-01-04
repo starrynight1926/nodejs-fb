@@ -135,8 +135,8 @@ if (require.main === module) {
     .then(result => {
       console.log(JSON.stringify({
         success: true,
-        output: result
-      }, null, 2));
+        ...result
+      }));
     })
     .catch(err => {
       console.error(JSON.stringify({
