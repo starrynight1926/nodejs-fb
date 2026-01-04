@@ -5,10 +5,10 @@ const app = express();
 app.use(express.json());
 
 /**
- * POST /fb
+ * POST /download
  * body: { "url": "https://www.facebook.com/..." }
  */
-app.post('/fb', async (req, res) => {
+app.post('/download', async (req, res) => {
   try {
     const { url } = req.body;
 
@@ -21,7 +21,6 @@ app.post('/fb', async (req, res) => {
 
     const result = await fbDownload(url);
 
-    // TRẢ FULL JSON Ở ĐÂY
     res.json({
       success: true,
       output: result
