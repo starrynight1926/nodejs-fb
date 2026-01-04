@@ -51,7 +51,7 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-/* ================= CORE FUNCTION ================= */
+/* ================= CORE ================= */
 async function fbDownload(url) {
   if (!url) {
     throw new Error('Missing Facebook URL');
@@ -71,10 +71,10 @@ async function fbDownload(url) {
     console.log('🌐 Đang mở:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    // chờ FB render
+    // đợi Facebook render JS
     await new Promise(r => setTimeout(r, 6000));
 
-    // lấy script chứa JSON
+    // lấy các script JSON
     let scripts = await page.$$eval('script', els =>
       els
         .map(e => e.innerText)
@@ -88,7 +88,7 @@ async function fbDownload(url) {
         )
     );
 
-    // NEXT DATA (story / reel)
+    // NEXT DATA (reel / story)
     const nextData = await page
       .$eval('#__NEXT_DATA__', el => el.innerText)
       .catch(() => null);
@@ -101,7 +101,7 @@ async function fbDownload(url) {
       } catch {}
     }
 
-    // dedupe theo url
+    // dedupe theo URL
     media = [...new Map(media.map(m => [m.url, m])).values()];
 
     const videos = media.filter(m => m.type === 'video');
@@ -121,34 +121,6 @@ async function fbDownload(url) {
   } finally {
     await browser.close();
   }
-}
-
-/* ================= CLI RUNNER (n8n SAFE) ================= */
-if (require.main === module) {
-  const url = process.argv[2];
-
-  fbDownload(url)
-    .then(result => {
-      // stdout: log bình thường
-      console.log('DONE');
-
-      // stderr: JSON sạch – FULL DATA
-      process.stderr.write(
-        JSON.stringify({
-          success: true,
-          output: result
-        })
-      );
-    })
-    .catch(err => {
-      process.stderr.write(
-        JSON.stringify({
-          success: false,
-          error: err.message
-        })
-      );
-      process.exit(1);
-    });
 }
 
 module.exports = fbDownload;
