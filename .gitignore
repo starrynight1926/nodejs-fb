@@ -1,1 +1,4 @@
 *cookie_clean.json
+*node_modules
+*package-lock.json
+result.html
