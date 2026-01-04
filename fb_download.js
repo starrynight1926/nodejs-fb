@@ -51,10 +51,13 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-/* ================= MAIN FUNCTION ================= */
+/* ================= MAIN ================= */
 module.exports = async function fbDownload(url) {
   if (!url) {
-    throw new Error('Missing Facebook URL');
+    return {
+      success: false,
+      error: 'Missing Facebook URL'
+    };
   }
 
   const browser = await puppeteer.launch({
@@ -71,7 +74,6 @@ module.exports = async function fbDownload(url) {
     console.log('🌐 Đang mở:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    // chờ FB render
     await new Promise(r => setTimeout(r, 6000));
 
     // lấy script chứa json
@@ -87,10 +89,11 @@ module.exports = async function fbDownload(url) {
         )
     );
 
-    // NEXT DATA (story / reel)
+    // NEXT DATA (reel / story)
     const nextData = await page
       .$eval('#__NEXT_DATA__', el => el.innerText)
       .catch(() => null);
+
     if (nextData) scripts.push(nextData);
 
     let media = [];
@@ -107,13 +110,21 @@ module.exports = async function fbDownload(url) {
     const images = media.filter(m => m.type === 'image');
 
     return {
+      success: true,
       count: {
         videos: videos.length,
         images: images.length,
         total: media.length
       },
-      videos,
-      images
+      media: {
+        videos: videos.map(v => v.url),
+        images: images.map(i => i.url)
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message
     };
   } finally {
     await browser.close();
