@@ -1,6 +1,6 @@
-import fs from "fs";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
+const fs = require("fs");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 
 puppeteer.use(StealthPlugin());
 
@@ -12,7 +12,7 @@ async function loadCookies(page) {
     await page.setCookie(...cookies);
     console.error("🍪 Cookie loaded OK");
   } catch (e) {
-    console.error("⚠️ Không load được cookie:", e.message);
+    console.error("⚠️ Cookie error:", e.message);
   }
 }
 
@@ -47,16 +47,8 @@ function extractMedia(obj, results = []) {
   return results;
 }
 
-/* ================= MAIN ================= */
-async function main() {
-  const url = process.argv[2];
-  if (!url) {
-    console.log(JSON.stringify({
-      success: false,
-      error: "Missing Facebook URL"
-    }));
-    process.exit(1);
-  }
+module.exports = async function fbDownload(url) {
+  if (!url) throw new Error("Missing Facebook URL");
 
   const browser = await puppeteer.launch({
     headless: "new",
@@ -88,38 +80,24 @@ async function main() {
     const nextData = await page
       .$eval("#__NEXT_DATA__", el => el.innerText)
       .catch(() => null);
-
     if (nextData) scripts.push(nextData);
 
     for (const s of scripts) {
       try {
-        const json = JSON.parse(s);
-        extractMedia(json, media);
+        extractMedia(JSON.parse(s), media);
       } catch {}
     }
 
     media = [...new Map(media.map(m => [m.url, m])).values()];
-
-  } catch (e) {
-    console.log(JSON.stringify({
-      success: false,
-      error: e.message
-    }));
-    return;
+    return {
+      count: {
+        videos: media.filter(m => m.type === "video").length,
+        images: media.filter(m => m.type === "image").length,
+        total: media.length
+      },
+      media
+    };
   } finally {
     await browser.close();
   }
-
-  /* ======= JSON OUTPUT DUY NHẤT ======= */
-  console.log(JSON.stringify({
-    success: true,
-    count: {
-      videos: media.filter(m => m.type === "video").length,
-      images: media.filter(m => m.type === "image").length,
-      total: media.length
-    },
-    media
-  }));
-}
-
-main();
+};
