@@ -74,7 +74,7 @@ async function fbDownload(url) {
     // chờ FB render
     await new Promise(r => setTimeout(r, 6000));
 
-    // lấy script chứa json
+    // lấy script chứa JSON
     let scripts = await page.$$eval('script', els =>
       els
         .map(e => e.innerText)
@@ -83,15 +83,15 @@ async function fbDownload(url) {
             t &&
             (t.includes('base_url') ||
               t.includes('playable_url') ||
-              t.includes('__bbox'))
+              t.includes('__bbox') ||
+              t.includes('dash_manifest'))
         )
     );
 
-    // NEXT DATA (reel / story)
+    // NEXT DATA (story / reel)
     const nextData = await page
       .$eval('#__NEXT_DATA__', el => el.innerText)
       .catch(() => null);
-
     if (nextData) scripts.push(nextData);
 
     let media = [];
@@ -104,8 +104,8 @@ async function fbDownload(url) {
     // dedupe theo url
     media = [...new Map(media.map(m => [m.url, m])).values()];
 
-    const videos = media.filter(m => m.type === 'video').map(v => v.url);
-    const images = media.filter(m => m.type === 'image').map(i => i.url);
+    const videos = media.filter(m => m.type === 'video');
+    const images = media.filter(m => m.type === 'image');
 
     return {
       count: {
@@ -123,26 +123,32 @@ async function fbDownload(url) {
   }
 }
 
-/* ================= EXPORT ================= */
-module.exports = fbDownload;
-
-/* ================= CLI RUNNER ================= */
-/* QUAN TRỌNG: đoạn này giúp stdout KHÔNG BAO GIỜ RỖNG */
+/* ================= CLI RUNNER (n8n SAFE) ================= */
 if (require.main === module) {
   const url = process.argv[2];
 
   fbDownload(url)
     .then(result => {
-      console.log(JSON.stringify({
-        success: true,
-        ...result
-      }));
+      // stdout: log bình thường
+      console.log('DONE');
+
+      // stderr: JSON sạch – FULL DATA
+      process.stderr.write(
+        JSON.stringify({
+          success: true,
+          output: result
+        })
+      );
     })
     .catch(err => {
-      console.error(JSON.stringify({
-        success: false,
-        error: err.message
-      }, null, 2));
+      process.stderr.write(
+        JSON.stringify({
+          success: false,
+          error: err.message
+        })
+      );
       process.exit(1);
     });
 }
+
+module.exports = fbDownload;
